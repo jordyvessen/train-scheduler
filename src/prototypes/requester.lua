@@ -10,7 +10,7 @@ local function create_sprite(direction)
 
   return
   {
-    filename = "__train_scheduler__/graphics/item-requester-" .. direction .. ".png",
+    filename = "__train_scheduler__/graphics/requester/item-requester-" .. direction .. ".png",
     priority = "extra-high",
     width = width,
     height = height,
@@ -25,7 +25,7 @@ local function generate_item_requester()
       {
         name = "item-requester",
         type = "decider-combinator",
-        icon = "__train_scheduler__/graphics/item-requester-icon.png",
+        icon = "__train_scheduler__/graphics/requester/item-requester-icon.png",
         icon_size = 32,
         flags = { "placeable-neutral", "player-creation" },
         minable = { mining_time = 0.1, result = "item-requester" },
@@ -103,7 +103,8 @@ data:extend({
     enabled = true,
     ingredients =
     {
-      { "electronic-circuit", 1 }
+      { "advanced-circuit", 1 },
+      { "decider-combinator", 1 }
     },
     results =
     {
@@ -113,7 +114,7 @@ data:extend({
   {
     type = "item",
     name = "item-requester",
-    icon = "__train_scheduler__/graphics/item-requester-icon.png",
+    icon = "__train_scheduler__/graphics/requester/item-requester-icon.png",
     icon_size = 32,
     subgroup = "circuit-network",
     order = "c-a",
