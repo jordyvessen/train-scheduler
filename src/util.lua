@@ -27,3 +27,20 @@ function table.print(table)
     log(key .. ": " .. serpent.block(value))
   end
 end
+
+---@param parentName string
+---@param child LuaGuiElement
+---@return boolean
+function is_child_of(parentName, child)
+  local parent = child.parent
+
+  if parent == nil then
+    return false
+  end
+
+  if parent.name == parentName then
+    return true
+  end
+
+  return is_child_of(parentName, parent)
+end

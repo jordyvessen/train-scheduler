@@ -1,47 +1,82 @@
 require "item-requester"
 
----@param player LuaPlayer
----@param entity LuaEntity
-local function open_item_requester_ui(player, entity)
-  local gui = player.gui.left
 
-  gui.add({
-    type = "frame",
-    name = "item_requester_ui",
-    caption = "Item Requester",
-    position = { 0, 50 },
-    vertical_centering = true
+local function add_slider(parent, name, caption, value)
+  parent.add({
+    type = "label",
+    name = name .. "_label",
+    caption = caption
   })
 
-  local sliderValue = 0
-  if global.requester_state and global.requester_state[entity.unit_number] then
-    sliderValue = global.requester_state[entity.unit_number].target
-  end
+  local sliderContainer = parent.add({
+    type = "flow",
+    name = name,
+    direction = "horizontal"
+  })
 
-  gui.item_requester_ui.add({
+  local slider = sliderContainer.add({
     type = "slider",
-    name = "item_requester_slider",
+    name = name,
     allow_negative = false,
     minimum_value = 0,
     maximum_value = 100000,
-    caption = "Request Amount",
+    caption = caption,
     style="notched_slider",
-    value_step = 1000,
-    value = sliderValue
+    value_step = 5000,
+    ---@cast value number
+    value = value
   })
 
-  gui.item_requester_ui.add({
-    type = "textfield",
-    name = "item_requester_textfield",
-    text = "0",
-    numeric = true,
-    allow_decimal = false,
-    allow_negative = false,
-    lose_focus_on_confirm = true,
-    enabled = false
+  sliderContainer.add({
+    type = "label",
+    name = name.. "_value",
+    caption = value
   })
 
-  gui.item_requester_ui.item_requester_textfield.style.maximal_width = 100
+  return slider
+end
+
+
+---@param player LuaPlayer
+---@param entity LuaEntity
+local function open_item_requester_ui(player, entity)
+  local state = get_requester_state(entity)
+
+  local gui = player.gui.left
+  local frame = gui.add({
+    type = "frame",
+    name = "item_requester_ui",
+    caption = "Item Requester #" .. entity.unit_number,
+    vertical_centering = true
+  })
+  frame.style.top_margin = 8
+  frame.style.minimal_width = 200
+
+  local table = frame.add({
+    type = "table",
+    name = "content",
+    column_count = 2
+  })
+  table.style.cell_padding = 2
+  table.style.horizontally_stretchable = true
+  table.style.bottom_padding = 8
+
+  table.add({
+    type = "label",
+    caption = "Item type"
+  })
+
+  local chooseItemType = table.add({
+    type = "choose-elem-button",
+    name = "item_requester_choose_item_type",
+    elem_type = "signal"
+  })
+  local itemType = state and state.itemType or nil
+  ---@cast itemType SignalID
+  chooseItemType.elem_value = itemType
+
+  add_slider(table, "item_requester_target_slider", "Target Quantity", state and state.target or 0)
+  add_slider(table, "item_requester_lower_limit_slider", "Lower Limit", state and state.lowerLimit or 0)
 end
 
 ---@param player LuaPlayer
@@ -52,31 +87,51 @@ local function close_item_requester_ui(player)
   gui.item_requester_ui.destroy()
 end
 
-script.on_event(defines.events.on_gui_opened,
-  function(event)
-    if event.entity == nil then return end
-    if event.entity.name ~= "item-requester" then return end
+---@param player LuaPlayer
+---@param entity LuaEntity
+function try_open_item_requester_ui(player, entity)
+  if entity.name ~= "item-requester" then return end
 
-    local player = game.players[event.player_index]
-    if player == nil then return end
+  open_item_requester_ui(player, entity)
+end
 
-    open_item_requester_ui(player, event.entity)
+---@param player LuaPlayer
+---@param entity LuaEntity
+function try_close_item_requester_ui(player, entity)
+  local activeGui = player.gui.left.item_requester_ui
+  if activeGui == nil then return end
+
+  local itemType = activeGui.content.item_requester_choose_item_type.elem_value
+  local target = activeGui.content.item_requester_target_slider.item_requester_target_slider.slider_value
+  local lowerLimit = activeGui.content.item_requester_lower_limit_slider.item_requester_lower_limit_slider.slider_value
+
+  update_requester_state(entity, {
+    ---@cast itemType SignalID
+    itemType = itemType,
+    target = target,
+    lowerLimit = lowerLimit
+  })
+
+  close_item_requester_ui(player)
+end
+
+---@param player LuaPlayer
+---@param element LuaGuiElement
+function on_requester_ui_value_changed(player, element)
+  local gui = player.gui.left
+  if gui.item_requester_ui == nil then return end
+
+  gui = gui.item_requester_ui
+
+  if element.name == "item_requester_target_slider" then
+    local value = element.slider_value
+    local slider = gui.content.item_requester_target_slider
+    slider.item_requester_target_slider_value.caption = value
   end
-)
 
-script.on_event(defines.events.on_gui_closed,
-  function(event)
-    if event.entity == nil then return end
-    if event.entity.name ~= "item-requester" then return end
-
-    local player = game.players[event.player_index]
-    if player == nil then return end
-
-    local sliderValue = player.gui.left.item_requester_ui.item_requester_slider.slider_value
-    update_requester_state(event.entity, {
-      target = sliderValue
-    })
-
-    close_item_requester_ui(player)
+  if element.name == "item_requester_lower_limit_slider" then
+    local value = element.slider_value
+    local slider = gui.content.item_requester_lower_limit_slider
+    slider.item_requester_lower_limit_slider_value.caption = value
   end
-)
+end

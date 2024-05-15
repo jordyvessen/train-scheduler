@@ -20,15 +20,15 @@ local function get_hub_control(entity)
   return control
 end
 
----@param item_requests table<string, Signal>
-function update_hubs(item_requests)
+---@param requesterRequests table<number, Signal>
+function update_hubs(requesterRequests)
   for _, hub in pairs(hubsCache) do
     local control = get_hub_control(hub)
     if control == nil then return end
 
     local index = 1
     local indexedRequests = {}
-    for _, request in pairs(item_requests) do
+    for _, request in pairs(requesterRequests) do
       if request.count > 0 then
         table.insert(indexedRequests, {
           index = index,
