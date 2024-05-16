@@ -28,6 +28,43 @@ function table.print(table)
   end
 end
 
+---@param t table
+---@param filterIter fun(value: any, key: any, t: table): boolean
+table.filter = function(t, filterIter)
+  local out = { }
+
+  for k, v in pairs(t) do
+    if filterIter(v, k, t) then 
+      table.insert(out, v)
+    end
+  end
+
+  return out
+end
+
+---@param t table
+---@param value any
+---@return number?
+table.indexOf = function(t, value)
+  for i, v in ipairs(t) do
+    if v == value then
+      return i
+    end
+  end
+
+  return nil
+end
+
+---@param t table
+---@param value any
+table.addIfNotExists = function(t, key, value)
+  if t[key] == nil then
+    t[key] = value
+  end
+
+  return t[key]
+end
+
 ---@param parentName string
 ---@param child LuaGuiElement
 ---@return boolean

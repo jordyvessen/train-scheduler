@@ -2,6 +2,7 @@ require "item-requester"
 require "requested-hub"
 require "item-requester-ui"
 require "trains.train-scheduler-ui"
+require "trains.scheduler-train-stop-ui"
 
 local shouldInit = true
 
@@ -11,6 +12,7 @@ script.on_event(defines.events.on_tick,
       build_requester_cache()
       build_hubs_cache()
       build_train_cache()
+      build_train_stop_cache()
       shouldInit = false
     end
 
@@ -28,16 +30,18 @@ script.on_event(defines.events.on_tick,
 local function on_create(entity)
   on_requester_created(entity)
   on_hub_created(entity)
+  on_train_stop_created(entity)
 end
 
 ---@param entity LuaEntity
 local function on_remove(entity)
   on_requester_removed(entity)
   on_hub_removed(entity)
+  on_train_stop_removed(entity)
 end
 
 script.on_event(defines.events.on_built_entity,
-  function(event) 
+  function(event)
     on_create(event.created_entity)
   end
 )
@@ -98,7 +102,7 @@ local function get_event_data(event)
   return player, entity
 end
 
--- Gui events
+--- Gui events
 script.on_event(defines.events.on_gui_opened,
   function(event)
     local player, entity = get_event_data(event)
@@ -106,6 +110,7 @@ script.on_event(defines.events.on_gui_opened,
 
     try_open_item_requester_ui(player, entity)
     try_open_train_ui(player, entity)
+    try_open_train_stop_ui(player, entity)
   end
 )
 
@@ -114,8 +119,9 @@ script.on_event(defines.events.on_gui_closed,
     local player, entity = get_event_data(event)
     if player == nil or entity == nil then return end
 
-    try_close_item_requester_ui(player, event.entity)
-    try_close_train_ui(player, event.entity)
+    try_close_item_requester_ui(player, entity)
+    try_close_train_ui(player, entity)
+    try_close_train_stop_ui(player, entity)
   end
 )
 

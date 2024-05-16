@@ -108,8 +108,10 @@ function on_train_ui_elem_changed(player, element)
   if train == nil then return end
 
   if element.name == "train_scheduler.choose_item_type" then
-    local selected = element.elem_value
+    local cache = get_train_cache()
+    table.addIfNotExists(cache, train.id, train)
 
+    local selected = element.elem_value
     ---@cast selected SignalID
     update_train_state(train, {
       itemType = selected
@@ -131,6 +133,9 @@ script.on_event(defines.events.on_gui_checked_state_changed,
     if train == nil then return end
 
     if element.name == "train_scheduler.enable_auto_scheduling" then
+      local cache = get_train_cache()
+      table.addIfNotExists(cache, train.id, train)
+
       update_train_state(train, {
         autoSchedulingEnabled = element.state,
         activeState = trainActiveState.WAITING

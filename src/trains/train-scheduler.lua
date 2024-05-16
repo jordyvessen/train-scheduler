@@ -1,29 +1,13 @@
-require "util"
+require "scheduler-train-stop"
 
 ---@type table<number, LuaTrain>
-local trainCache = { }
+local trainCache = {}
 
----@type table<number, LuaEntity>
-local trainStopCache = { }
-
-local trainStopType = {
-  UNLOADING = "Unloading",
-  LOADING = "Loading",
-  WAITING = "Waiting",
-  UNKNOWN = "Unknown"
-}
-
-local trainActiveState = {
+trainActiveState = {
   WAITING = "Waiting",
   SCHEDULED = "Scheduled",
   LOADING = "Loading",
   UNLOADING = "Unloading"
-}
-
-local trainStopTypeCharacterMap = {
-  ["U"] = trainStopType.UNLOADING,
-  ["L"] = trainStopType.LOADING,
-  ["W"] = trainStopType.WAITING
 }
 
 ---@param train LuaTrain
@@ -40,7 +24,7 @@ function update_train_state(train, newState)
   end
 
   log("Updated train state for entity " ..
-      " (" .. train.id .. ")" .. " to " .. serpent.block(global.train_state[train.id]))
+    " (" .. train.id .. ")" .. " to " .. serpent.block(global.train_state[train.id]))
 end
 
 ---@param trainId number
@@ -50,10 +34,14 @@ function get_train_state(trainId)
   return global.train_state[trainId]
 end
 
+function get_train_cache()
+  return trainCache
+end
+
 ---@return LuaTrain[]
 function get_trains()
   ---@type LuaTrain[]
-  local trains = { }
+  local trains = {}
 
   for _, surface in pairs(game.surfaces) do
     for _, train in pairs(surface.get_trains()) do
@@ -62,13 +50,6 @@ function get_trains()
   end
 
   return trains
-end
-
-local function build_train_stop_cache()
-  local stops = get_entities("train-stop")
-  for _, stop in pairs(stops) do
-    trainStopCache[stop.unit_number] = stop
-  end
 end
 
 function build_train_cache()
@@ -92,86 +73,82 @@ function build_train_cache()
     ::continue::
   end
 
-  build_train_stop_cache()
-
   log("Built train cache. " .. serpent.block(trainCache))
+  log("Built train state cache. " .. serpent.block(global.train_state))
 end
 
----@param stop LuaEntity
----@param requester LuaEntity
----@return boolean
-local function is_stop_connected_to_requester(stop, requester)
-  local control = stop.get_or_create_control_behavior()
-  if control == nil then return false end
-
-  ---@cast control LuaTrainStopControlBehavior
-  local redConnection = control.get_circuit_network(defines.wire_type.red)
-  local redConnectionId = redConnection and redConnection.network_id or nil
-
-  local greenConnection = control.get_circuit_network(defines.wire_type.green)
-  local greenConnectionId = greenConnection and greenConnection.network_id or nil
-
-  if redConnectionId == nil and greenConnectionId == nil then return false end
-
-  local requesterControl = get_item_requester_control(requester)
-  if requesterControl == nil then return false end
-
-  local requesterRedConnection = requesterControl.get_circuit_network(defines.wire_type.red, defines.circuit_connector_id.combinator_output)
-  local requesterRedConnectionId = requesterRedConnection and requesterRedConnection.network_id or nil
-
-  local requesterGreenConnection = requesterControl.get_circuit_network(defines.wire_type.green, defines.circuit_connector_id.combinator_output)
-  local requesterGreenConnectionId = requesterGreenConnection and requesterGreenConnection.network_id or nil
-
-  if requesterRedConnectionId == nil and requesterGreenConnectionId == nil then return false end
-
-  return (requesterRedConnectionId == redConnectionId and requesterRedConnectionId ~= nil) or
-          (requesterGreenConnectionId == greenConnectionId and requesterGreenConnectionId ~= nil)
-end
-
-local function get_connected_stop_for_requester(requester)
-  for _, stop in pairs(trainStopCache) do
-    if is_stop_connected_to_requester(stop, requester) then
-      return stop
-    end
+local function get_cargo_count(train, signal)
+  if signal.type == "item" then
+    return train.get_item_count(signal.name)
+  elseif signal.type == "fluid" then
+    return train.get_fluid_count(signal.name)
   end
 
-  return nil
+  return 0
 end
 
----@param stop LuaEntity
----@return "Unloading" | "Loading" | "Waiting" | "Unknown"
-local function get_stop_type(stop)
-  local stopTypeCharacter = string.sub(stop.backer_name, 1, 1)
-  return trainStopTypeCharacterMap[stopTypeCharacter] or trainStopType.UNKNOWN
+---@param train LuaTrain
+---@param signal SignalID
+---@return number
+local function get_max_capacity(train, signal)
+  ---@type LuaItemPrototype
+  local item = game.item_prototypes[signal.name]
+  stackSize = item ~= nil and item.stack_size or stackSize
+
+  local total = 0
+  for _, carriage in pairs(train.carriages) do
+    if carriage.name ~= "cargo-wagon" and carriage.name ~= "fluid-wagon" then goto continue end
+
+    if carriage.name == "cargo-wagon" and signal.type ~= "item" then goto continue end
+    if carriage.name == "fluid-wagon" and signal.type ~= "fluid" then goto continue end
+
+    local inventorySize = carriage.prototype.get_inventory_size(defines.inventory.cargo_wagon)
+    if inventorySize == nil then goto continue end
+
+    total = total + (inventorySize * (stackSize or 1))
+
+    ::continue::
+  end
+
+  return total
 end
 
 ---@param train LuaTrain
 ---@param request SignalID
 ---@return boolean
-local function is_filled(train, request)
-  if request.type == "item" then
-    return train.get_item_count(request.name) > 0
-  elseif request.type == "fluid" then
-    return train.get_fluid_count(request.name) > 0
-  end
+local function has_cargo(train, request)
+  return get_cargo_count(train, request) > 0
+end
 
-  return false
+---@param train LuaTrain
+---@return boolean
+local function is_train_available(train)
+  if not train.valid then return false end
+
+  local state = get_train_state(train.id)
+  if state == nil then return false end
+  return state.activeState == trainActiveState.WAITING and
+          state.autoSchedulingEnabled == true
 end
 
 ---@param request Signal
-local function get_available_filled_train(request)
+---@param filter (fun(train: LuaTrain): boolean)?
+local function get_available_train(request, filter)
   ---@type LuaTrain[]
-  local availableTrains = { }
+  local availableTrains = {}
 
   for _, train in pairs(trainCache) do
     if not train.valid then goto continue end
 
-    local trainState = get_train_state(train.id)
-    if trainState == nil then goto continue end
-    if not trainState.autoSchedulingEnabled then goto continue end
-    if trainState.activeState ~= trainActiveState.WAITING then goto continue end
+    local isAvailable = is_train_available(train)
+    local isValid = filter == nil or filter(train)
 
-    if trainState.itemType.name == request.signal.name and is_filled(train, request.signal) then
+    local state = get_train_state(train.id)
+    if state == nil then goto continue end
+
+    local isCorrectType = state.itemType ~= nil and state.itemType.name == request.signal.name
+
+    if isCorrectType and isAvailable and isValid then
       table.insert(availableTrains, train)
     end
 
@@ -181,43 +158,16 @@ local function get_available_filled_train(request)
   ---@param a LuaTrain
   ---@param b LuaTrain
   local function compare(a, b)
-    if request.signal.type == "item" then
-      return a.get_item_count(request.signal.name) < b.get_item_count(request.signal.name)
-    elseif request.signal.type == "fluid" then
-      return a.get_fluid_count(request.signal.name) < b.get_fluid_count(request.signal.name)
-    end
+    local countA = get_cargo_count(a, request.signal)
+    local countB = get_cargo_count(b, request.signal)
 
-    return false
+    return countA < countB
   end
 
   table.sort(availableTrains, compare)
   if #availableTrains > 0 then return availableTrains[1] end
 
   return nil
-end
-
----@param requester LuaEntity
-local function get_available_empty_train(requester)
-  for _, train in pairs(trainCache) do
-    if not train.valid then goto continue end
-
-    local trainState = get_train_state(train.id)
-    if trainState == nil then goto continue end
-    if not trainState.autoSchedulingEnabled then goto continue end
-    if trainState.activeState ~= trainActiveState.WAITING then goto continue end
-
-    local stop = get_connected_stop_for_requester(requester)
-    if stop == nil then goto continue end
-
-    if #stop.get_train_stop_trains() > 0 then goto continue end
-
-    if is_filled(train, state.itemType) then goto continue end
-
-    ::continue::
-  end
-
-  return nil
-
 end
 
 ---@param stop LuaEntity
@@ -277,7 +227,7 @@ end
 
 ---@param stop LuaEntity
 ---@return TrainSchedule
-local function create_request_schedule(stop)
+local function create_unloading_schedule(stop)
   ---@type TrainSchedule
   local schedule = {
     records = {},
@@ -290,6 +240,52 @@ local function create_request_schedule(stop)
   return schedule
 end
 
+---@param stop LuaEntity
+---@return TrainSchedule
+local function create_loading_schedule(stop)
+  ---@type TrainSchedule
+  local schedule = {
+    records = {},
+    current = 1
+  }
+
+  table.insert(schedule.records, create_loading_record(stop))
+  table.insert(schedule.records, create_wait_record())
+
+  return schedule
+end
+
+local function create_idle_schedule()
+
+  ---@type TrainSchedule
+  local schedule = {
+    records = {},
+    current = 1
+  }
+
+  table.insert(schedule.records, create_wait_record())
+
+  return schedule
+
+end
+
+---@param train LuaTrain
+---@param schedule TrainSchedule
+---@param stop LuaEntity
+---@param itemType SignalID
+local function schedule_train(train, schedule, stop, itemType)
+  train.schedule = schedule
+  update_train_state(train, {
+    activeState = trainActiveState.SCHEDULED
+  })
+
+  local stopType = get_stop_type(stop)
+  local cargoCount = get_cargo_count(train, itemType)
+  log("Scheduled train " ..
+  train.id ..
+    " to " .. stopType .. " " .. stop.backer_name .. " with " .. cargoCount .. " " .. itemType.name)
+end
+
 ---@param requests table<number, Signal>
 local function try_schedule_unloading_requests(requests)
   local requesterCache = get_requester_cache()
@@ -298,23 +294,16 @@ local function try_schedule_unloading_requests(requests)
     local requester = requesterCache[requesterId]
     if requester == nil then goto continue end
 
-    local stop = get_connected_stop_for_requester(requester)
+    local stop = get_available_unloading_stop(itemRequest.signal, requester)
     if stop == nil then goto continue end
 
-    if #stop.get_train_stop_trains() > 0 then goto continue end
-
-    local stopType = get_stop_type(stop)
-    if stopType == trainStopType.UNKNOWN then goto continue end
-
-    local availableTrain = get_available_filled_train(itemRequest)
+    local availableTrain = get_available_train(itemRequest,
+      function(train)
+        return has_cargo(train, itemRequest.signal)
+      end)
 
     if availableTrain then
-      availableTrain.schedule = create_request_schedule(stop)
-      update_train_state(availableTrain, {
-        activeState = trainActiveState.SCHEDULED
-      })
-
-      log("Scheduled train " .. availableTrain.id .. " to " .. stop.backer_name .. " (" .. stopType .. ")")
+      schedule_train(availableTrain, create_unloading_schedule(stop), stop, itemRequest.signal)
     end
 
     ::continue::
@@ -322,46 +311,34 @@ local function try_schedule_unloading_requests(requests)
 end
 
 local function try_schedule_loading_requests()
-  local requesterCache = get_requester_cache()
+  for _, train in pairs(trainCache) do
+    local isAvailable = is_train_available(train)
+    if not isAvailable then goto continue end
 
-  for requesterId, requester in pairs(requesterCache) do
-    local stop = get_connected_stop_for_requester(requester)
+    local state = get_train_state(train.id)
+    if state == nil then goto continue end
+
+    local itemType = state.itemType
+    ---@cast itemType SignalID
+
+    local maxCapacity = get_max_capacity(train, itemType)
+    local currentCapacity = get_cargo_count(train, itemType)
+    if currentCapacity >= maxCapacity then goto continue end
+
+    local stop = get_available_loading_stop(itemType)
     if stop == nil then goto continue end
 
-    if #stop.get_train_stop_trains() > 0 then goto continue end
-
-    local stopType = get_stop_type(stop)
-    if stopType == trainStopType.UNKNOWN then goto continue end
-
-    local availableTrain = get_available_filled_train(itemRequest)
-
-    if availableTrain then
-      availableTrain.schedule = create_request_schedule(stop)
-      update_train_state(availableTrain, {
-        activeState = trainActiveState.SCHEDULED
-      })
-
-      log("Scheduled train " .. availableTrain.id .. " to " .. stop.backer_name .. " (" .. stopType .. ")")
-    end
+    schedule_train(train, create_loading_schedule(stop), stop, itemType)
 
     ::continue::
   end
-
 end
 
 ---@param requests table<number, Signal>
 function try_schedule_trains(requests)
   try_schedule_unloading_requests(requests)
+  try_schedule_loading_requests()
 end
-
-
-script.on_event(defines.events.on_train_changed_state,
-  function(event)
-    if not trainCache[event.train.id] then return end
-
-    -- log("Train changed state: " .. serpent.block(event))
-  end
-)
 
 script.on_event(defines.events.on_train_created,
   function(event)
@@ -386,8 +363,37 @@ script.on_event(defines.events.on_train_created,
       ---@diagnostic disable-next-line: assign-type-mismatch
       itemType = state and state.itemType or nil
     })
+  end
+)
 
-    log("Train created: " .. serpent.block(event))
-    log("Train cache: " .. serpent.block(trainCache))
+script.on_event(defines.events.on_train_changed_state,
+  function(event)
+    local state = get_train_state(event.train.id)
+    if state == nil then return end
+
+    if event.train.state == defines.train_state.wait_station then
+      local stationState = get_train_stop_state(event.train.station)
+      if stationState == nil then return end
+
+      log("Train " .. event.train.id .. " is now waiting at " .. event.train.station.name .. " type: " .. stationState.type)
+
+      if stationState.type == trainStopType.LOADING then
+        update_train_state(event.train, {
+          activeState = trainActiveState.LOADING
+        })
+      elseif stationState.type == trainStopType.UNLOADING then
+        update_train_state(event.train, {
+          activeState = trainActiveState.UNLOADING
+        })
+      elseif stationState.type == trainStopType.WAITING then
+        local itemType = state.itemType
+        ---@cast itemType SignalID
+        schedule_train(event.train, create_idle_schedule(), event.train.station, itemType)
+
+        update_train_state(event.train, {
+          activeState = trainActiveState.WAITING
+        })
+      end
+    end
   end
 )
