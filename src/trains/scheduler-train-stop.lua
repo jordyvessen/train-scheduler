@@ -116,9 +116,10 @@ end
 
 ---@param stopType "Unloading" | "Loading" | "Waiting"
 ---@param request SignalID?
+---@param ignoreLimit boolean?
 ---@param filter (fun(stop: LuaEntity): boolean)?
 ---@return LuaEntity?
-local function get_stop_of_type(stopType, request, filter)
+local function get_stop_of_type(stopType, request, ignoreLimit, filter)
 
   ---@type LuaEntity[]
   local availableStops = table.filter(trainStopCache, function(stop)
@@ -126,7 +127,7 @@ local function get_stop_of_type(stopType, request, filter)
     if state == nil then return false end
 
     local isOfType = state.type == stopType
-    local isAvailable = #stop.get_train_stop_trains() < stop.trains_limit
+    local isAvailable = (#stop.get_train_stop_trains() < stop.trains_limit) or ignoreLimit == true
     local validItemType = request == nil or (state.itemType ~= nil and state.itemType.name == request.name)
 
     local isValid = filter == nil or filter(stop)
@@ -149,15 +150,20 @@ end
 ---@param requester LuaEntity
 ---@return LuaEntity?
 function get_available_unloading_stop(request, requester)
-  return get_stop_of_type(trainStopType.UNLOADING, request,
+  return get_stop_of_type(trainStopType.UNLOADING, request, false,
     function (stop)
       return is_stop_connected_to_requester(stop, requester)
     end)
 end
 
+---@param train LuaTrain
 ---@return LuaEntity?
-function get_available_waiting_stop()
-  return get_stop_of_type(trainStopType.WAITING)
+function get_available_waiting_stop(train)
+  return get_stop_of_type(trainStopType.WAITING, nil, true,
+    function (stop)
+      local stoppedTrain = stop.get_stopped_train()
+      return #stop.get_train_stop_trains() < stop.trains_limit or (stoppedTrain ~= nil and stoppedTrain.id == train.id)
+    end)
 end
 
 

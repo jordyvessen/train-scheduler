@@ -22,6 +22,7 @@ script.on_event(defines.events.on_tick,
 
     local itemRequests = get_all_item_requests()
     update_hubs(itemRequests)
+
     try_schedule_trains(itemRequests)
   end
 )

@@ -28,11 +28,11 @@ end
 ---@param updatedParameters DeciderCombinatorParameters
 local function update_control_parameters(control, updatedParameters)
   ---@type DeciderCombinatorParameters
-  local newParameters = {
-    comparator = control.parameters.comparator,
-    constant = control.parameters.constant,
-    first_signal = control.parameters.first_signal
-  }
+  local newParameters = { }
+
+  for key, value in pairs(control.parameters) do
+    newParameters[key] = value
+  end
 
   for key, value in pairs(updatedParameters) do
     newParameters[key] = value
@@ -64,7 +64,7 @@ function update_requester_state(entity, updatedProperties)
       updatedValues[key] = value
 
       if control then
-        if key == "lowerLimit" then
+        if key == "target" then
           ---@cast value number
           update_control_parameters(control, {
             constant = value
@@ -133,6 +133,8 @@ end
 local function get_signal_for_request_type(requester)
   local state = get_requester_state(requester)
   if state == nil then return nil end
+
+  if state.itemType == nil then return nil end
 
   local defaultSignal = {
     signal = state.itemType,
@@ -240,8 +242,13 @@ function on_requester_created(entity)
   if control == nil then return end
 
   control.parameters = { 
-    comparator = "≤",
-    constant = 25000
+    comparator = "<",
+    constant = 50000,
+    output_signal = {
+      type = "virtual",
+      name = "signal-green"
+    },
+    copy_count_from_input = false
   }
 
   requesterCache[entity.unit_number] = entity
