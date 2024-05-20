@@ -52,7 +52,7 @@ local function build_ui(player, trainStop)
     caption = "Choose Stop Type:"
   }
 
-  local options = { trainStopType.LOADING, trainStopType.UNLOADING, trainStopType.WAITING, trainStopType.UNKNOWN }
+  local options = { TrainStopType.LOADING, TrainStopType.UNLOADING, TrainStopType.WAITING, TrainStopType.UNKNOWN }
   local selectedIndex = state and table.indexOf(options, state.type) or #options
   local chooseStopType = contentTable.add{
     type = "drop-down",
@@ -84,7 +84,7 @@ function try_close_train_stop_ui(player, entity)
 
   update_train_stop_state(entity, {
     itemType = selectedItemType,
-    type = selectedStopType or trainStopType.UNKNOWN
+    type = selectedStopType or TrainStopType.UNKNOWN
   })
 
   activeGui.destroy()

@@ -1,10 +1,12 @@
-require "item-requester"
-require "requested-hub"
-require "item-requester-ui"
+require "items.requested-hub"
+require "items.item-requester-ui"
 require "trains.train-scheduler-ui"
 require "trains.scheduler-train-stop-ui"
 
 local shouldInit = true
+
+---@type table<number, Signal>
+local itemRequests = {}
 
 script.on_event(defines.events.on_tick,
   function(event)
@@ -16,12 +18,10 @@ script.on_event(defines.events.on_tick,
       shouldInit = false
     end
 
-    if not (event.tick % 60 == 0) then return end
-
-    process_requesters()
-
-    local itemRequests = get_all_item_requests()
-    update_hubs(itemRequests)
+    if event.tick % 60 == 0 then
+      itemRequests = process_requesters()
+      update_hubs(itemRequests)
+    end
 
     try_schedule_trains(itemRequests)
   end
@@ -41,49 +41,24 @@ local function on_remove(entity)
   on_train_stop_removed(entity)
 end
 
-script.on_event(defines.events.on_built_entity,
+script.on_event({
+  defines.events.on_built_entity,
+  defines.events.on_robot_built_entity,
+  defines.events.script_raised_built,
+  defines.events.script_raised_revive
+},
   function(event)
-    on_create(event.created_entity)
+    local entity = event.created_entity or event.entity
+    on_create(entity)
   end
 )
 
-script.on_event(defines.events.on_robot_built_entity,
-  function(event)
-    on_create(event.created_entity)
-  end
-)
-
-script.on_event(defines.events.script_raised_built,
-  function(event)
-    on_create(event.entity)
-  end
-)
-
-script.on_event(defines.events.script_raised_revive,
-  function(event)
-    on_create(event.entity)
-  end
-)
-
-script.on_event(defines.events.on_pre_player_mined_item,
-  function(event)
-    on_remove(event.entity)
-  end
-)
-
-script.on_event(defines.events.on_robot_pre_mined,
-  function(event)
-    on_remove(event.entity)
-  end
-)
-
-script.on_event(defines.events.on_entity_died,
-  function(event)
-    on_remove(event.entity)
-  end
-)
-
-script.on_event(defines.events.script_raised_destroy,
+script.on_event({
+  defines.events.on_pre_player_mined_item,
+  defines.events.on_robot_pre_mined,
+  defines.events.on_entity_died,
+  defines.events.script_raised_destroy
+},
   function(event)
     on_remove(event.entity)
   end

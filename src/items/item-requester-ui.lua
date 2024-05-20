@@ -1,6 +1,5 @@
 require "item-requester"
 
-
 local function add_slider(parent, name, caption, value)
   parent.add({
     type = "label",
@@ -40,7 +39,7 @@ end
 ---@param player LuaPlayer
 ---@param entity LuaEntity
 local function open_item_requester_ui(player, entity)
-  local state = get_requester_state(entity)
+  local requester = get_requester(entity)
 
   local gui = player.gui.left
   local frame = gui.add({
@@ -71,12 +70,12 @@ local function open_item_requester_ui(player, entity)
     name = "item_requester_choose_item_type",
     elem_type = "signal"
   })
-  local itemType = state and state.itemType or nil
+  local itemType = requester and requester.state.itemType or nil
   ---@cast itemType SignalID
   chooseItemType.elem_value = itemType
 
-  add_slider(table, "item_requester_target_slider", "Target Quantity", state and state.target or 0)
-  add_slider(table, "item_requester_lower_limit_slider", "Lower Limit", state and state.lowerLimit or 0)
+  add_slider(table, "item_requester_target_slider", "Target Quantity", requester and requester.state.target or 0)
+  add_slider(table, "item_requester_lower_limit_slider", "Lower Limit", requester and requester.state.lowerLimit or 0)
 end
 
 ---@param player LuaPlayer
@@ -98,6 +97,9 @@ end
 ---@param player LuaPlayer
 ---@param entity LuaEntity
 function try_close_item_requester_ui(player, entity)
+  local requester = get_requester(entity)
+  if requester == nil then return end
+
   local activeGui = player.gui.left.item_requester_ui
   if activeGui == nil then return end
 
@@ -105,7 +107,7 @@ function try_close_item_requester_ui(player, entity)
   local target = activeGui.content.item_requester_target_slider.item_requester_target_slider.slider_value
   local lowerLimit = activeGui.content.item_requester_lower_limit_slider.item_requester_lower_limit_slider.slider_value
 
-  update_requester_state(entity, {
+  requester.updateState({
     ---@cast itemType SignalID
     itemType = itemType,
     target = target,

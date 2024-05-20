@@ -34,7 +34,7 @@ table.filter = function(t, filterIter)
   local out = { }
 
   for k, v in pairs(t) do
-    if filterIter(v, k, t) then 
+    if filterIter(v, k, t) then
       table.insert(out, v)
     end
   end
@@ -80,4 +80,28 @@ function is_child_of(parentName, child)
   end
 
   return is_child_of(parentName, parent)
+end
+
+---@param name string
+---@param func fun(): any
+---@param profiler LuaProfiler?
+---@param logIfValueEquals any?
+---@return any
+function execute_timed(name, func, profiler, logIfValueEquals)
+  if profiler == nil then
+    profiler = game.create_profiler(true)
+    profiler.reset()
+  end
+
+  profiler.restart()
+  local result = func()
+
+  profiler.stop()
+
+  if logIfValueEquals == nil or result == logIfValueEquals then
+    log{"__1__ took __2__", name, profiler}
+  end
+
+
+  return result
 end

@@ -1,12 +1,9 @@
 require "util"
 
----@type table<number, LuaEntity>
-local hubsCache = {}
-
----@return table<LuaEntity>
-function get_hubs()
-  return get_entities("requested-hub")
-end
+---@class RequestedHub
+---@field entity LuaEntity
+---@field control LuaConstantCombinatorControlBehavior
+Hub = { }
 
 ---@param entity LuaEntity
 ---@return LuaConstantCombinatorControlBehavior?
@@ -20,12 +17,29 @@ local function get_hub_control(entity)
   return control
 end
 
+function Hub:new(entity)
+  local control = get_hub_control(entity)
+  if control == nil then 
+    error("Could not find control behavior for entity " .. entity.unit_number .. " " .. entity.name)
+  end
+
+  return {
+    entity = entity,
+    control = control
+  }
+end
+
+---@type table<number, RequestedHub>
+local hubsCache = {}
+
+---@return table<LuaEntity>
+function get_hubs()
+  return get_entities("requested-hub")
+end
+
 ---@param requesterRequests table<number, Signal>
 function update_hubs(requesterRequests)
   for _, hub in pairs(hubsCache) do
-    local control = get_hub_control(hub)
-    if control == nil then return end
-
     local index = 1
     local indexedRequests = {}
     for _, request in pairs(requesterRequests) do
@@ -40,15 +54,15 @@ function update_hubs(requesterRequests)
       end
     end
 
-    control.parameters = nil
-    control.parameters = indexedRequests
+    hub.control.parameters = nil
+    hub.control.parameters = indexedRequests
   end
 end
 
 function build_hubs_cache()
   local hubs = get_hubs()
   for _, hub in pairs(hubs) do
-    hubsCache[hub.unit_number] = hub
+    hubsCache[hub.unit_number] = Hub:new(hub)
   end
 end
 
@@ -56,7 +70,7 @@ end
 function on_hub_created(entity)
   if entity.name ~= "requested-hub" then return end
 
-  hubsCache[entity.unit_number] = entity
+  hubsCache[entity.unit_number] = Hub:new(entity)
 end
 
 ---@param entity LuaEntity
