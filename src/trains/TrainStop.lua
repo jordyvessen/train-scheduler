@@ -17,14 +17,25 @@ TrainStopType = {
   UNKNOWN = "Unknown"
 }
 
+---@param entity LuaEntity
+---@param state TrainStopState
+---@return string
+local function create_stop_name(entity, state)
+  
+  if state.type == TrainStopType.UNKNOWN then
+    return "Train stop" .. " (" .. entity.unit_number .. ")"
+
+  elseif state.type == TrainStopType.WAITING then
+    return state.type .. " (" .. entity.unit_number .. ")"
+  end
+
+  return state.type .. " " .. state.itemType.name .. " (" .. entity.unit_number .. ")"
+end
+
 ---@param stop TrainStop
 ---@param newState table
 local function update_state(stop, newState)
   if not stop.isValid() then return end
-
-  if global.train_stop_state[stop.entity.unit_number] == nil then
-    global.train_stop_state[stop.entity.unit_number] = TrainStopState:new { }
-  end
 
   for key, value in pairs(newState) do
     stop.state[key] = value
@@ -56,25 +67,34 @@ function TrainStop:new(entity)
     error("Could not find control behavior for entity " .. entity.unit_number .. " " .. entity.name)
   end
 
-  local state = global.train_stop_state[entity.unit_number] or {
+  local initialState = global.train_stop_state[entity.unit_number] or {
     type = TrainStopType.UNKNOWN,
     itemType = nil
   }
 
-  entity.trains_limit = 1
+  if entity.trains_limit == nil and initialState.type ~= TrainStopType.UNKNOWN then
+    entity.trains_limit = 1
+  end
 
-  ---@type TrainStop
+  entity.backer_name = create_stop_name(entity, initialState)
+
   local stop = {
     entity = entity,
     control = control,
-    state = state,
-    updateState = function(newState)
-      update_state(self, newState)
-    end,
+    state = initialState,
     isValid = function()
-      return stop.entity.valid
+      return entity.valid
     end
   }
 
+  stop.updateState = function(newState)
+    update_state(stop, newState)
+    entity.backer_name = create_stop_name(entity, stop.state)
+  end
+
+  global.train_stop_state[entity.unit_number] = stop.state
+
+  setmetatable(stop, self)
+  self.__index = self
   return stop
 end

@@ -39,17 +39,27 @@ local function on_remove(entity)
   on_requester_removed(entity)
   on_hub_removed(entity)
   on_train_stop_removed(entity)
+  on_train_removed(entity)
 end
 
 script.on_event({
   defines.events.on_built_entity,
   defines.events.on_robot_built_entity,
   defines.events.script_raised_built,
-  defines.events.script_raised_revive
+  defines.events.script_raised_revive,
 },
   function(event)
     local entity = event.created_entity or event.entity
     on_create(entity)
+  end
+)
+
+script.on_event({
+  defines.events.on_entity_settings_pasted,
+},
+  function(event)
+    on_requester_settings_pasted(event.source, event.destination)
+    on_stop_settings_pasted(event.source, event.destination)
   end
 )
 

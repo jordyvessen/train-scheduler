@@ -81,11 +81,17 @@ function try_close_train_stop_ui(player, entity)
 
   local selectedItemType = activeGui.content.choose_item_type.elem_value
   local selectedStopType = activeGui.content.choose_stop_type.items[activeGui.content.choose_stop_type.selected_index]
+  activeGui.destroy()
 
-  update_train_stop_state(entity, {
+  local cache = get_train_stop_cache()
+
+  ---@type TrainStop
+  local stop = cache[entity.unit_number]
+  if stop == nil then return end
+
+  stop.updateState({
     itemType = selectedItemType,
     type = selectedStopType or TrainStopType.UNKNOWN
   })
 
-  activeGui.destroy()
 end

@@ -148,3 +148,17 @@ function on_requester_removed(entity)
       " Cache: " .. serpent.block(requesterCache) ..
       " State: " .. serpent.block(global.requester_state))
 end
+
+---@param source LuaEntity
+---@param target LuaEntity
+function on_requester_settings_pasted(source, target)
+  if target.name ~= "item-requester" then return end
+
+  local sourceRequester = get_requester(source)
+  if sourceRequester == nil then return end
+
+  local targetRequester = get_requester(target)
+  if targetRequester == nil then return end
+
+  targetRequester.updateState(sourceRequester.state)
+end

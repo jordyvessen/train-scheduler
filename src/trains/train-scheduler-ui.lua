@@ -72,8 +72,6 @@ local function build_train_ui(player, trainId)
     ---@cast autoSchedulingEnabled boolean
     state = autoSchedulingEnabled
   })
-
-  frame.bring_to_front()
 end
 
 ---@param player LuaPlayer
@@ -108,14 +106,17 @@ function on_train_ui_elem_changed(player, element)
   if train == nil then return end
 
   if element.name == "train_scheduler.choose_item_type" then
-    local cache = get_train_cache()
-    table.addIfNotExists(cache, train.id, train)
-
     local selected = element.elem_value
     ---@cast selected SignalID
-    update_train_state(train, {
+
+    local cache = get_train_cache()
+    local trainWithState = cache[global.activeGuiTrainId] or TrainWithState:new(train)
+
+    trainWithState.updateState({
       itemType = selected
     })
+
+    table.addIfNotExists(cache, train.id, trainWithState)
   end
 end
 
@@ -134,12 +135,14 @@ script.on_event(defines.events.on_gui_checked_state_changed,
 
     if element.name == "train_scheduler.enable_auto_scheduling" then
       local cache = get_train_cache()
-      table.addIfNotExists(cache, train.id, train)
+      local trainWithState = cache[global.activeGuiTrainId] or TrainWithState:new(train)
 
-      update_train_state(train, {
+      trainWithState.updateState({
         autoSchedulingEnabled = element.state,
         activeState = trainActiveState.WAITING
       })
+
+      table.addIfNotExists(cache, train.id, trainWithState)
     end
   end
 )

@@ -9,6 +9,7 @@
 ---@field control LuaDeciderCombinatorControlBehavior
 ---@field state RequesterState
 ---@field updateState fun(newState: table): nil
+---@field updateControlParameters fun(updatedParameters: DeciderCombinatorParameters): nil
 ---@field isValid fun(): boolean
 
 ---@param control LuaDeciderCombinatorControlBehavior
@@ -24,8 +25,6 @@ local function update_control_parameters(control, updatedParameters)
   for key, value in pairs(updatedParameters) do
     newParameters[key] = value
   end
-
-  log("Updated control parameters with values " .. serpent.block(updatedParameters) .. " to " .. serpent.block(newParameters))
 
   control.parameters = newParameters
 end
@@ -60,6 +59,19 @@ local function update_state(requester, updatedProperties)
         update_control_parameters(requester.control, {
           first_signal = value
         })
+      elseif key == "itemsRequested" then
+        if value == true then
+          update_control_parameters(requester.control, {
+            output_signal = {
+              type = "virtual",
+              name = "signal-green"
+            }
+          })
+        else
+          update_control_parameters(requester.control, {
+            output_signal = { name = nil, type = "virtual" }
+          })
+        end
       end
     end
   end
@@ -67,8 +79,6 @@ local function update_state(requester, updatedProperties)
   log("Updated requester state for entity " ..
       " (" .. requester.entity.unit_number .. ")" .. " with values " .. serpent.block(updatedValues) .. " to "
       .. serpent.block(requester.state))
-
-  log(serpent.block(requester.control.parameters))
 
   global.requester_state[requester.entity.unit_number] = requester.state
   return requester.state
@@ -117,7 +127,10 @@ function Requester:new(entity)
     entity = entity,
     control = control,
     state = initialState,
-    isValid = function () return entity.valid end
+    isValid = function () return entity.valid end,
+    updateControlParameters = function (updatedParameters)
+      return update_control_parameters(control, updatedParameters)
+    end
   }
 
   r.updateState = function (newState)

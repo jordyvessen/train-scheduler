@@ -119,7 +119,8 @@ end
 function on_train_stop_created(entity)
   if entity.name ~= "train-stop" then return end
 
-  trainStopCache[entity.unit_number] = TrainStop:new(entity)
+  local stop = TrainStop:new(entity)
+  trainStopCache[entity.unit_number] = stop
 end
 
 ---@param entity LuaEntity
@@ -128,4 +129,18 @@ function on_train_stop_removed(entity)
 
   table.removekey(trainStopCache, entity.unit_number)
   table.removekey(global.train_stop_state, entity.unit_number)
+end
+
+---@param source LuaEntity
+---@param target LuaEntity
+function on_stop_settings_pasted(source, target)
+  if target.name ~= "item-requester" then return end
+
+  local sourceStop = trainStopCache[source.unit_number]
+  if sourceStop == nil then return end
+
+  local targetStop = trainStopCache[target.unit_number]
+  if targetStop == nil then return end
+
+  targetStop.updateState(sourceStop.state)
 end
