@@ -1,3 +1,4 @@
+---@diagnostic disable: missing-fields
 ---@class RequesterState
 ---@field target number
 ---@field lowerLimit number
@@ -32,12 +33,12 @@ end
 ---@param requester Requester
 ---@param updatedProperties table<"target" | "lowerLimit" | "itemsRequested" | "itemType", number | boolean | SignalID>
 local function update_state(requester, updatedProperties)
-  if global.requester_state == nil then
-    global.requester_state = {}
+  if storage.requester_state == nil then
+    storage.requester_state = {}
   end
 
-  if global.requester_state[requester.entity.unit_number] == nil then
-    global.requester_state[requester.entity.unit_number] = {}
+  if storage.requester_state[requester.entity.unit_number] == nil then
+    storage.requester_state[requester.entity.unit_number] = {}
   end
 
   local updatedValues = {}
@@ -48,29 +49,33 @@ local function update_state(requester, updatedProperties)
       requester.state[key] = value
       updatedValues[key] = value
 
-      if key == "target" then
+      local condition = requester.control.get_condition(1)
+
+      if key == "target" and condition ~= nil then
+        condition.constant = value
+
         ---@cast value number
         update_control_parameters(requester.control, {
-          constant = value
+          conditions = { condition }
         })
 
-      elseif key == "itemType" then
+      elseif key == "itemType" and condition ~= nil then
+        condition.first_signal = value
+
         ---@cast value SignalID
         update_control_parameters(requester.control, {
-          first_signal = value
+          conditions = { condition }
         })
       elseif key == "itemsRequested" then
+        update_control_parameters(requester.control, {
+          outputs = { }
+        })
+
         if value == true then
-          update_control_parameters(requester.control, {
-            output_signal = {
-              type = "virtual",
-              name = "signal-green"
-            }
-          })
-        else
-          update_control_parameters(requester.control, {
-            output_signal = { name = nil, type = "virtual" }
-          })
+          requester.control.add_output({
+            signal = { name = "signal-green", type = "virtual" },
+            copy_count_from_input = false
+          }, 1)
         end
       end
     end
@@ -80,7 +85,7 @@ local function update_state(requester, updatedProperties)
       " (" .. requester.entity.unit_number .. ")" .. " with values " .. serpent.block(updatedValues) .. " to "
       .. serpent.block(requester.state))
 
-  global.requester_state[requester.entity.unit_number] = requester.state
+  storage.requester_state[requester.entity.unit_number] = requester.state
   return requester.state
 end
 
@@ -103,23 +108,20 @@ function Requester:new(entity)
     error("Could not find control behavior for entity " .. entity.unit_number .. " " .. entity.name)
   end
 
-  control.parameters = {
-    comparator = "<",
-    constant = 50000,
-    output_signal = {
-      type = "virtual",
-      name = "signal-green"
-    },
-    copy_count_from_input = false
-  }
-
-  local initialState = global.requester_state[entity.unit_number]
+  local initialState = storage.requester_state[entity.unit_number]
   if initialState == nil then
+    local condition = {
+      first_signal = { name = "signal-everything", type = "virtual" },
+      comparator = "<",
+      constant = 50000
+    }
+    control.add_condition(condition, 1)
+
     initialState = {
-      target = control.parameters.constant * 2,
-      lowerLimit = control.parameters.constant,
+      target = condition.constant * 2,
+      lowerLimit = condition.constant,
       itemsRequested = false,
-      itemType = control.parameters.first_signal
+      itemType = condition.first_signal
     }
   end
 
@@ -142,7 +144,7 @@ function Requester:new(entity)
     first_signal = r.state.itemType
   })
 
-  global.requester_state[entity.unit_number] = r.state
+  storage.requester_state[entity.unit_number] = r.state
 
   setmetatable(r, self)
   self.__index = self

@@ -24,10 +24,8 @@ end
 function get_merged_input_signals(requester)
   if not requester.isValid() then return nil end
 
-  local greenInputSignals = requester.control.get_circuit_network(defines.wire_type.green,
-    defines.circuit_connector_id.combinator_input)
-  local redInputSignals = requester.control.get_circuit_network(defines.wire_type.red,
-    defines.circuit_connector_id.combinator_input)
+  local greenInputSignals = requester.control.get_circuit_network(defines.wire_connector_id.circuit_green)
+  local redInputSignals = requester.control.get_circuit_network(defines.wire_connector_id.circuit_red)
 
   ---@type table<string, Signal>
   local mergedInputSignals = {}
@@ -109,9 +107,13 @@ function process_requesters()
 end
 
 local function validate_requester_state()
-  for unitNumber, _ in pairs(global.requester_state) do
+  if storage.requester_state == nil then
+    storage.requester_state = {}
+  end
+
+  for unitNumber, _ in pairs(storage.requester_state) do
     if not requesterCache[unitNumber] then
-      table.removekey(global.requester_state, unitNumber)
+      table.removekey(storage.requester_state, unitNumber)
     end
   end
 end
@@ -142,11 +144,11 @@ function on_requester_removed(entity)
   if entity.name ~= "item-requester" then return end
 
   table.removekey(requesterCache, entity.unit_number)
-  table.removekey(global.requester_state, entity.unit_number)
+  table.removekey(storage.requester_state, entity.unit_number)
 
   log("Removing requester. " .. entity.unit_number ..
       " Cache: " .. serpent.block(requesterCache) ..
-      " State: " .. serpent.block(global.requester_state))
+      " State: " .. serpent.block(storage.requester_state))
 end
 
 ---@param source LuaEntity

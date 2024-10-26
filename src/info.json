@@ -1,11 +1,11 @@
 {
   "name": "train_scheduler",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "title": "Train scheduler v1",
   "author": "Me",
-  "factorio_version": "1.1",
+  "factorio_version": "2.0",
   "dependencies": [
-    "base >= 1.1"
+    "base >= 2.0"
   ],
   "description": "Good trainscheduling"
 }

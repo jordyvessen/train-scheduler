@@ -99,9 +99,8 @@ function execute_timed(name, func, profiler, logIfValueEquals)
   profiler.stop()
 
   if logIfValueEquals == nil or result == logIfValueEquals then
-    log{"__1__ took __2__", name, profiler}
+    log({'debug.log-duration', name, profiler})
   end
-
 
   return result
 end

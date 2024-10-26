@@ -1,7 +1,7 @@
 
 param (
     [string]$publishDir,
-    [string]$modName = "train_scheduler_0.0.1"
+    [string]$modName = "train_scheduler_0.1.0"
 )
 
 if (-not (Test-Path $publishDir)) {

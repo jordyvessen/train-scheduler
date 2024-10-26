@@ -12,12 +12,12 @@ end
 ---@param stop LuaEntity
 ---@return TrainStopState?
 function get_train_stop_state(stop)
-  return global.train_stop_state[stop.unit_number]
+  return storage.train_stop_state[stop.unit_number]
 end
 
 function build_train_stop_cache()
-  if global.train_stop_state == nil then
-    global.train_stop_state = { }
+  if storage.train_stop_state == nil then
+    storage.train_stop_state = { }
   end
 
   local stopEntities = get_entities("train-stop")
@@ -35,18 +35,18 @@ end
 ---@param requester Requester
 ---@return boolean
 local function is_stop_connected_to_requester(stop, requester)
-  local redConnection = stop.control.get_circuit_network(defines.wire_type.red)
+  local redConnection = stop.control.get_circuit_network(defines.wire_connector_id.circuit_red)
   local redConnectionId = redConnection and redConnection.network_id or nil
 
-  local greenConnection = stop.control.get_circuit_network(defines.wire_type.green)
+  local greenConnection = stop.control.get_circuit_network(defines.wire_connector_id.circuit_green)
   local greenConnectionId = greenConnection and greenConnection.network_id or nil
 
   if redConnectionId == nil and greenConnectionId == nil then return false end
 
-  local requesterRedConnection = requester.control.get_circuit_network(defines.wire_type.red, defines.circuit_connector_id.combinator_output)
+  local requesterRedConnection = requester.control.get_circuit_network(defines.wire_connector_id.combinator_output_red)
   local requesterRedConnectionId = requesterRedConnection and requesterRedConnection.network_id or nil
 
-  local requesterGreenConnection = requester.control.get_circuit_network(defines.wire_type.green, defines.circuit_connector_id.combinator_output)
+  local requesterGreenConnection = requester.control.get_circuit_network(defines.wire_connector_id.combinator_output_green)
   local requesterGreenConnectionId = requesterGreenConnection and requesterGreenConnection.network_id or nil
 
   if requesterRedConnectionId == nil and requesterGreenConnectionId == nil then return false end
@@ -128,7 +128,7 @@ function on_train_stop_removed(entity)
   if entity.name ~= "train-stop" then return end
 
   table.removekey(trainStopCache, entity.unit_number)
-  table.removekey(global.train_stop_state, entity.unit_number)
+  table.removekey(storage.train_stop_state, entity.unit_number)
 end
 
 ---@param source LuaEntity

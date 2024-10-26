@@ -1,9 +1,9 @@
 require "scheduler-train-stop"
 
 ---@param station string
----@return TrainScheduleRecord
+---@return ScheduleRecord
 local function create_loading_record(station)
-  ---@type TrainScheduleRecord
+  ---@type ScheduleRecord
   return {
     station = station,
     wait_conditions = {
@@ -17,7 +17,7 @@ end
 
 ---@param station string
 local function create_wait_record(station)
-  ---@type TrainScheduleRecord
+  ---@type ScheduleRecord
   return {
     station = station,
     wait_conditions = {
@@ -32,7 +32,7 @@ end
 
 ---@param station string
 local function create_unloading_record(station)
-  ---@type TrainScheduleRecord
+  ---@type ScheduleRecord
   return {
     station = station,
     wait_conditions = {

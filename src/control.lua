@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-field
 require "items.requested-hub"
 require "items.item-requester-ui"
 require "trains.train-scheduler-ui"
@@ -92,6 +93,7 @@ end
 script.on_event(defines.events.on_gui_opened,
   function(event)
     local player, entity = get_event_data(event)
+    
     if player == nil or entity == nil then return end
 
     try_open_item_requester_ui(player, entity)
@@ -103,6 +105,7 @@ script.on_event(defines.events.on_gui_opened,
 script.on_event(defines.events.on_gui_closed,
   function(event)
     local player, entity = get_event_data(event)
+
     if player == nil or entity == nil then return end
 
     try_close_item_requester_ui(player, entity)

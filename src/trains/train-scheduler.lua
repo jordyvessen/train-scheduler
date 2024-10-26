@@ -15,7 +15,12 @@ function get_trains()
   local trains = {}
 
   for _, surface in pairs(game.surfaces) do
-    for _, train in pairs(surface.get_trains()) do
+    local surface_trains = game.train_manager.get_trains({
+      surface = surface,
+      is_manual = false
+    })
+
+    for _, train in pairs(surface_trains) do
       table.insert(trains, train)
     end
   end
@@ -24,13 +29,13 @@ function get_trains()
 end
 
 function build_train_cache()
-  if global.train_state == nil then
-    global.train_state = {}
+  if storage.train_state == nil then
+    storage.train_state = {}
   end
 
   local trains = get_trains()
   for _, train in pairs(trains) do
-    local state = global.train_state[train.id]
+    local state = storage.train_state[train.id]
     if state == nil then goto continue end
 
     trainCache[train.id] = TrainWithState:new(train, state)
@@ -63,9 +68,9 @@ local function schedule_train(train, schedule, station)
 
   local cargoCount = train.getCargoCount()
   local fuelCount = train.getFuelCount()
-  local itemName = train.state.getItemTypeName()
+  local itemName = getItemTypeName(train.state)
   log("Scheduled train " .. train.id .. " 🔥" .. fuelCount ..
-    " to '" .. station .. " with " .. cargoCount .. " " .. itemName)
+    " to '" .. station .. "' with " .. cargoCount .. " " .. itemName)
 end
 
 ---@param trainItemType SignalID
@@ -143,7 +148,7 @@ function try_schedule_trains(requests)
   local index = 0
   for _, train in pairs(trainCache) do
     index = index + 1
-    
+
     if not train.isValid() then goto continue end
     if index ~= trainIndex then
       goto continue
@@ -183,7 +188,7 @@ function on_train_removed(entity)
   if train == nil then return end
 
   trainCache[train.id] = nil
-  global.train_state[train.id] = nil
+  storage.train_state[train.id] = nil
 end
 
 script.on_event(defines.events.on_train_created,
@@ -192,13 +197,13 @@ script.on_event(defines.events.on_train_created,
     if event.old_train_id_1 then
       state = get_train_state(event.old_train_id_1)
       trainCache[event.old_train_id_1] = nil
-      global.train_state[event.old_train_id_1] = nil
+      storage.train_state[event.old_train_id_1] = nil
     end
 
     if event.old_train_id_2 then
       state = get_train_state(event.old_train_id_2)
       trainCache[event.old_train_id_2] = nil
-      global.train_state[event.old_train_id_2] = nil
+      storage.train_state[event.old_train_id_2] = nil
     end
 
     trainCache[event.train.id] = TrainWithState:new(event.train, {
@@ -218,7 +223,7 @@ script.on_event(defines.events.on_train_changed_state,
       local stationState = get_train_stop_state(event.train.station)
       if stationState == nil then return end
 
-      log("Train " .. train.id .. " (" .. train.state.getItemTypeName() .. ") " .. " arrived at station " .. event.train.station.backer_name .. " (" .. stationState.type .. ")" )
+      log("Train " .. train.id .. " (" .. getItemTypeName(train.state) .. ") " .. " arrived at station " .. event.train.station.backer_name .. " (" .. stationState.type .. ")" )
 
       if stationState.type == TrainStopType.LOADING then
         train.updateState({

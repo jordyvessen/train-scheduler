@@ -21,28 +21,26 @@ local function update_state(train, newState)
     train.state[key] = value
   end
 
-  global.train_state[train.id] = train.state
+  storage.train_state[train.id] = train.state
 end
 
 ---@param train TrainWithState
 ---@param signal SignalID
 ---@return number
 local function get_cargo_count(train, signal)
-  if signal.type == "item" then
-    return train.luaTrain.get_item_count(signal.name)
-  elseif signal.type == "fluid" then
+  if signal.type == "fluid" then
     return train.luaTrain.get_fluid_count(signal.name)
   end
 
-  return 0
+  return train.luaTrain.get_item_count(signal.name)
 end
 
 ---@param train TrainWithState
 ---@return number
 local function get_max_capacity(train)
   ---@type LuaItemPrototype
-  local item = game.item_prototypes[train.state.getItemTypeName()]
-  local trainItemType = train.state.getItemType()
+  local item = prototypes.item[getItemTypeName(train.state)]
+  local trainItemType = getItemType(train.state)
   stackSize = item ~= nil and item.stack_size or stackSize
 
   local total = 0
@@ -116,7 +114,7 @@ function TrainWithState:new(train, initialState)
     return has_cargo(t, request)
   end
 
-  t.updateState(initialState)
+  t.updateState(initialState or {})
   setmetatable(t, self)
   self.__index = self
   return t

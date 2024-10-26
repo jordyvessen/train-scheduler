@@ -41,7 +41,7 @@ local function update_state(stop, newState)
     stop.state[key] = value
   end
 
-  global.train_stop_state[stop.entity.unit_number] = stop.state
+  storage.train_stop_state[stop.entity.unit_number] = stop.state
 
   log("Updated train stop state for entity " ..
       " (" .. stop.entity.unit_number .. ")" .. " to " .. serpent.block(stop.state))
@@ -67,7 +67,7 @@ function TrainStop:new(entity)
     error("Could not find control behavior for entity " .. entity.unit_number .. " " .. entity.name)
   end
 
-  local initialState = global.train_stop_state[entity.unit_number] or {
+  local initialState = storage.train_stop_state[entity.unit_number] or {
     type = TrainStopType.UNKNOWN,
     itemType = nil
   }
@@ -92,7 +92,7 @@ function TrainStop:new(entity)
     entity.backer_name = create_stop_name(entity, stop.state)
   end
 
-  global.train_stop_state[entity.unit_number] = stop.state
+  storage.train_stop_state[entity.unit_number] = stop.state
 
   setmetatable(stop, self)
   self.__index = self

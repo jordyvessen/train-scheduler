@@ -79,7 +79,7 @@ end
 function try_close_train_ui(player, entity)
   if entity.name ~= "locomotive" then return end
 
-  global.activeGuiTrainId = nil
+  storage.activeGuiTrainId = nil
   local activeTrainGui = player.gui.screen.train_scheduler
   if activeTrainGui == nil then return end
 
@@ -92,7 +92,7 @@ function try_open_train_ui(player, entity)
   if entity.name ~= "locomotive" then return end
 
   local trainId = entity.train.id
-  global.activeGuiTrainId = trainId
+  storage.activeGuiTrainId = trainId
 
   build_train_ui(player, trainId)
 end
@@ -100,9 +100,9 @@ end
 ---@param player LuaPlayer
 ---@param element LuaGuiElement
 function on_train_ui_elem_changed(player, element)
-  if not global.activeGuiTrainId then return end
+  if not storage.activeGuiTrainId then return end
 
-  local train = game.get_train_by_id(global.activeGuiTrainId)
+  local train = game.train_manager.get_train_by_id(storage.activeGuiTrainId)
   if train == nil then return end
 
   if element.name == "train_scheduler.choose_item_type" then
@@ -110,7 +110,7 @@ function on_train_ui_elem_changed(player, element)
     ---@cast selected SignalID
 
     local cache = get_train_cache()
-    local trainWithState = cache[global.activeGuiTrainId] or TrainWithState:new(train)
+    local trainWithState = cache[storage.activeGuiTrainId] or TrainWithState:new(train)
 
     trainWithState.updateState({
       itemType = selected
@@ -128,14 +128,14 @@ script.on_event(defines.events.on_gui_checked_state_changed,
     local element = event.element
     if element == nil then return end
 
-    if not global.activeGuiTrainId then return end
+    if not storage.activeGuiTrainId then return end
 
-    local train = game.get_train_by_id(global.activeGuiTrainId)
+    local train = game.train_manager.get_train_by_id(storage.activeGuiTrainId)
     if train == nil then return end
 
     if element.name == "train_scheduler.enable_auto_scheduling" then
       local cache = get_train_cache()
-      local trainWithState = cache[global.activeGuiTrainId] or TrainWithState:new(train)
+      local trainWithState = cache[storage.activeGuiTrainId] or TrainWithState:new(train)
 
       trainWithState.updateState({
         autoSchedulingEnabled = element.state,

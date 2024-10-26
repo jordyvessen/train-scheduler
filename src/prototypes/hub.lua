@@ -69,9 +69,21 @@ data:extend({
     name = "requested-hub",
     enabled = true,
     ingredients = {
-      {"constant-combinator", 1},
-      {"advanced-circuit", 1},
-      {"processing-unit", 1}
+      {
+        name = "constant-combinator",
+        type = "item",
+        amount = 1
+      },
+      {
+        name = "advanced-circuit",
+        type = "item",
+        amount = 1
+      },
+      {
+        name = "processing-unit",
+        type = "item",
+        amount = 1
+      }
     },
     results =
     {

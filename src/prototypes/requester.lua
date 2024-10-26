@@ -39,7 +39,7 @@ local function generate_item_requester()
           type = "electric",
           usage_priority = "secondary-input",
         },
-        active_energy_usage = "1KW",
+        active_energy_usage = "1W",
 
         activity_led_light =
         {
@@ -103,8 +103,16 @@ data:extend({
     enabled = true,
     ingredients =
     {
-      { "advanced-circuit", 1 },
-      { "decider-combinator", 1 }
+      { 
+        name = "decider-combinator",
+        amount = 1,
+        type = "item"
+      },
+      {
+        name= "advanced-circuit",
+        amount = 1,
+        type = "item"
+      }
     },
     results =
     {
